@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Package, Truck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Truck } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 
 const InventoryManager = () => {

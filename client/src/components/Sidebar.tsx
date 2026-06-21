@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { LayoutDashboard, Map as MapIcon, Package, ShoppingCart, LogOut } from 'lucide-react';
 
 interface SidebarProps {

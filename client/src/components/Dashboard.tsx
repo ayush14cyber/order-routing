@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Activity, BarChart3, PackageCheck, AlertCircle } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 
