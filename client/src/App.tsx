@@ -33,15 +33,15 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard user={user} />;
       case 'map':
         return <WarehouseMap />;
       case 'inventory':
-        return <InventoryManager />;
+        return <InventoryManager user={user} />;
       case 'orders':
         return <OrderCreator />;
       default:
-        return <Dashboard />;
+        return <Dashboard user={user} />;
     }
   };
 

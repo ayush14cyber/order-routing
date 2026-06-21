@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Activity, BarChart3, PackageCheck, AlertCircle } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 
-const Dashboard = () => {
+const Dashboard = ({ user }: { user?: any }) => {
   const [stats, setStats] = useState({
     totalWarehouses: 0,
     totalOrders: 0,
@@ -109,7 +109,7 @@ const Dashboard = () => {
                     </span>
                 </td>
                 <td style={{ padding: '1rem' }}>
-                    {order.status !== 'Fulfilled' && (
+                    {order.status !== 'Fulfilled' && user?.role === 'Warehouse Manager' && (
                         <button 
                             onClick={() => handleFulfill(order._id)}
                             style={{ padding: '6px 12px', fontSize: '0.75rem' }}

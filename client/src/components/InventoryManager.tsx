@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Truck } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 
-const InventoryManager = () => {
+const InventoryManager = ({ user }: { user?: any }) => {
     const [warehouses, setWarehouses] = useState([]);
     const [products, setProducts] = useState([]);
     const [inventory, setInventory] = useState([]);
@@ -76,12 +76,16 @@ const InventoryManager = () => {
                 <h2>Resource Management</h2>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button onClick={() => setView('inventory')} className={view === 'inventory' ? 'active' : ''}>Inventory</button>
-                    <button onClick={() => setView('add-warehouse')} className={view === 'add-warehouse' ? 'active' : ''}>+ Add Warehouse</button>
-                    <button onClick={() => setView('add-product')} className={view === 'add-product' ? 'active' : ''}>+ Add Product</button>
+                    {user?.role === 'Admin' && (
+                        <>
+                            <button onClick={() => setView('add-warehouse')} className={view === 'add-warehouse' ? 'active' : ''}>+ Add Warehouse</button>
+                            <button onClick={() => setView('add-product')} className={view === 'add-product' ? 'active' : ''}>+ Add Product</button>
+                        </>
+                    )}
                 </div>
             </div>
 
-            {view === 'add-warehouse' && (
+            {view === 'add-warehouse' && user?.role === 'Admin' && (
                 <div className="glass" style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
                     <h3>Register New Warehouse</h3>
                     <form onSubmit={handleAddWarehouse} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.5rem' }}>
@@ -101,7 +105,7 @@ const InventoryManager = () => {
                 </div>
             )}
 
-            {view === 'add-product' && (
+            {view === 'add-product' && user?.role === 'Admin' && (
                 <div className="glass" style={{ padding: '2rem', maxWidth: '500px', margin: '0 auto' }}>
                     <h3>Catalog New Product</h3>
                     <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.5rem' }}>
