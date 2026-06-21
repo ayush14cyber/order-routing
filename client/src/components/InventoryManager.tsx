@@ -42,7 +42,9 @@ const InventoryManager = () => {
             name: e.target.name.value,
             sku: e.target.sku.value,
             price: parseFloat(e.target.price.value),
-            description: e.target.description.value
+            description: e.target.description.value,
+            warehouseId: e.target.warehouseId.value,
+            initialQuantity: parseInt(e.target.initialQuantity.value) || 0
         };
         await fetch(`${API_BASE_URL}/api/products`, {
             method: 'POST',
@@ -107,6 +109,11 @@ const InventoryManager = () => {
                         <input name="sku" placeholder="SKU (e.g. PROD-001)" className="glass" style={{ padding: '0.8rem', color: 'white' }} required />
                         <input name="price" placeholder="Price ($)" type="number" step="0.01" className="glass" style={{ padding: '0.8rem', color: 'white' }} required />
                         <textarea name="description" placeholder="Description" className="glass" style={{ padding: '0.8rem', color: 'white', minHeight: '100px' }} required />
+                        <select name="warehouseId" className="glass" style={{ padding: '0.8rem', color: 'white' }} required>
+                            <option value="">Select Initial Warehouse</option>
+                            {warehouses.map((w: any) => <option key={w._id} value={w._id}>{w.name}</option>)}
+                        </select>
+                        <input name="initialQuantity" type="number" placeholder="Initial Quantity" className="glass" style={{ padding: '0.8rem', color: 'white' }} required />
                         <button type="submit">Add to Catalog</button>
                     </form>
                 </div>

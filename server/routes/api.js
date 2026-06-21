@@ -46,8 +46,19 @@ router.get('/warehouses', async (req, res) => {
 // --- Product Routes ---
 router.post('/products', async (req, res) => {
     try {
-        const product = new Product(req.body);
+        const { name, sku, price, description, warehouseId, initialQuantity } = req.body;
+        const product = new Product({ name, sku, price, description });
         await product.save();
+
+        if (warehouseId) {
+            const inventory = new Inventory({
+                productId: product._id,
+                warehouseId,
+                quantity: initialQuantity || 0
+            });
+            await inventory.save();
+        }
+
         res.status(201).json(product);
     } catch (err) {
         res.status(400).json({ error: err.message });
