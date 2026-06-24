@@ -84,13 +84,48 @@ async function placeAutomaticOrder() {
     }
 }
 
-// Initialize the cron job
-function initCron() {
-    // Run every 5 minutes
-    cron.schedule('*/5 * * * *', () => {
-        placeAutomaticOrder();
+// --- Controllable Cron State ---
+let cronTask = null;
+let cronIntervalMinutes = 5;
+let orderCount = 0;
+let lastRanAt = null;
+
+function startCron(intervalMinutes = 5) {
+    if (cronTask) {
+        cronTask.stop();
+        cronTask = null;
+    }
+    cronIntervalMinutes = intervalMinutes;
+    const expression = `*/${intervalMinutes} * * * *`;
+    cronTask = cron.schedule(expression, async () => {
+        await placeAutomaticOrder();
+        orderCount++;
+        lastRanAt = new Date().toISOString();
     });
+    console.log(`[CRON] Auto-order cron started (every ${intervalMinutes} min).`);
+}
+
+function stopCron() {
+    if (cronTask) {
+        cronTask.stop();
+        cronTask = null;
+        console.log('[CRON] Auto-order cron stopped.');
+    }
+}
+
+function getCronStatus() {
+    return {
+        running: cronTask !== null,
+        intervalMinutes: cronIntervalMinutes,
+        ordersPlaced: orderCount,
+        lastRanAt
+    };
+}
+
+// Initialize the cron job on server start
+function initCron() {
+    startCron(5);
     console.log('[CRON] Automatic order cron job initialized (runs every 5 minutes).');
 }
 
-module.exports = { initCron };
+module.exports = { initCron, startCron, stopCron, getCronStatus, placeAutomaticOrder };

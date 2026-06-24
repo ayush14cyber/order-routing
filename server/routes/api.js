@@ -5,8 +5,35 @@ const Product = require('../models/Product');
 const Inventory = require('../models/Inventory');
 const Order = require('../models/Order');
 const { selectOptimalWarehouse } = require('../engine/routingEngine');
+const { startCron, stopCron, getCronStatus, placeAutomaticOrder } = require('../cron');
 
 const User = require('../models/User');
+
+// --- Cron Job Control Routes ---
+router.get('/cron/status', (req, res) => {
+    res.json(getCronStatus());
+});
+
+router.post('/cron/start', (req, res) => {
+    const { intervalMinutes } = req.body;
+    const interval = parseInt(intervalMinutes) || 5;
+    startCron(interval);
+    res.json({ message: `Cron started with ${interval} minute interval`, ...getCronStatus() });
+});
+
+router.post('/cron/stop', (req, res) => {
+    stopCron();
+    res.json({ message: 'Cron stopped', ...getCronStatus() });
+});
+
+router.post('/cron/trigger', async (req, res) => {
+    try {
+        await placeAutomaticOrder();
+        res.json({ message: 'Manual auto-order triggered successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // --- Auth Routes ---
 router.post('/login', async (req, res) => {

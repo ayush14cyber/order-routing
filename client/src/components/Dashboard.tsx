@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Activity, BarChart3, PackageCheck, AlertCircle } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Activity, BarChart3, PackageCheck, AlertCircle, Clock, Play, Square, Zap } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 
 const Dashboard = ({ user }: { user?: any }) => {
@@ -11,6 +11,10 @@ const Dashboard = ({ user }: { user?: any }) => {
   });
 
   const [recentOrders, setRecentOrders] = useState([]);
+  const [cronStatus, setCronStatus] = useState<any>(null);
+  const [cronInterval, setCronInterval] = useState(5);
+  const [cronLoading, setCronLoading] = useState(false);
+  const [triggerMsg, setTriggerMsg] = useState('');
 
   const fetchOrders = () => {
     fetch(`${API_BASE_URL}/api/orders`).then(res => res.json()).then(data => {
@@ -19,6 +23,13 @@ const Dashboard = ({ user }: { user?: any }) => {
     });
   };
 
+  const fetchCronStatus = useCallback(() => {
+    fetch(`${API_BASE_URL}/api/cron/status`)
+      .then(res => res.json())
+      .then(data => { setCronStatus(data); setCronInterval(data.intervalMinutes || 5); })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     // Initial fetch
     fetch(`${API_BASE_URL}/api/warehouses`).then(res => res.json()).then(data => 
@@ -26,11 +37,16 @@ const Dashboard = ({ user }: { user?: any }) => {
     );
     
     fetchOrders();
+    fetchCronStatus();
 
     fetch(`${API_BASE_URL}/api/inventory`).then(res => res.json()).then(data => {
       setStats(prev => ({ ...prev, lowStockAlerts: data.filter((i:any) => i.quantity < 10).length }));
     });
-  }, []);
+
+    // Poll cron status every 30s
+    const interval = setInterval(fetchCronStatus, 30000);
+    return () => clearInterval(interval);
+  }, [fetchCronStatus]);
 
   const handleFulfill = async (orderId: string) => {
     await fetch(`${API_BASE_URL}/api/orders/${orderId}`, {
@@ -38,7 +54,36 @@ const Dashboard = ({ user }: { user?: any }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'Fulfilled' })
     });
-    fetchOrders(); // Refresh table
+    fetchOrders();
+  };
+
+  const handleCronStart = async () => {
+    setCronLoading(true);
+    await fetch(`${API_BASE_URL}/api/cron/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ intervalMinutes: cronInterval })
+    });
+    await fetchCronStatus();
+    setCronLoading(false);
+  };
+
+  const handleCronStop = async () => {
+    setCronLoading(true);
+    await fetch(`${API_BASE_URL}/api/cron/stop`, { method: 'POST' });
+    await fetchCronStatus();
+    setCronLoading(false);
+  };
+
+  const handleTriggerNow = async () => {
+    setCronLoading(true);
+    setTriggerMsg('');
+    const res = await fetch(`${API_BASE_URL}/api/cron/trigger`, { method: 'POST' });
+    const data = await res.json();
+    setTriggerMsg(data.message || data.error || 'Done');
+    fetchOrders();
+    setCronLoading(false);
+    setTimeout(() => setTriggerMsg(''), 4000);
   };
 
   const cards = [
@@ -69,6 +114,86 @@ const Dashboard = ({ user }: { user?: any }) => {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ── Auto Order Scheduler Panel ── */}
+      <div className="glass" style={{ marginTop: '2rem', padding: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+          <Clock size={20} color="var(--accent)" />
+          <h3 style={{ margin: 0 }}>Auto Order Scheduler</h3>
+          {cronStatus && (
+            <span style={{
+              marginLeft: 'auto',
+              padding: '4px 14px',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              background: cronStatus.running ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+              color: cronStatus.running ? 'var(--success)' : '#ef4444',
+              border: `1px solid ${cronStatus.running ? 'var(--success)' : '#ef4444'}`,
+            }}>
+              {cronStatus.running ? '● RUNNING' : '○ STOPPED'}
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '12px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', margin: 0 }}>AUTO ORDERS PLACED</p>
+            <p style={{ fontSize: '1.4rem', fontWeight: 700, margin: '4px 0 0' }}>{cronStatus?.ordersPlaced ?? '—'}</p>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '12px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', margin: 0 }}>INTERVAL</p>
+            <p style={{ fontSize: '1.4rem', fontWeight: 700, margin: '4px 0 0' }}>{cronStatus?.intervalMinutes ?? '—'} min</p>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '12px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', margin: 0 }}>LAST RAN</p>
+            <p style={{ fontSize: '0.85rem', fontWeight: 600, margin: '4px 0 0' }}>
+              {cronStatus?.lastRanAt ? new Date(cronStatus.lastRanAt).toLocaleString() : 'Never'}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Interval (min):</label>
+            <input
+              id="cron-interval-input"
+              type="number"
+              min={1}
+              max={60}
+              value={cronInterval}
+              onChange={e => setCronInterval(parseInt(e.target.value) || 5)}
+              className="glass"
+              style={{ width: '70px', padding: '0.5rem 0.75rem', color: 'white', textAlign: 'center' }}
+            />
+          </div>
+          <button
+            id="cron-start-btn"
+            onClick={handleCronStart}
+            disabled={cronLoading}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', background: 'rgba(34,197,94,0.15)', border: '1px solid var(--success)', color: 'var(--success)' }}
+          >
+            <Play size={16} /> Start
+          </button>
+          <button
+            id="cron-stop-btn"
+            onClick={handleCronStop}
+            disabled={cronLoading}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', background: 'rgba(239,68,68,0.15)', border: '1px solid #ef4444', color: '#ef4444' }}
+          >
+            <Square size={16} /> Stop
+          </button>
+          <button
+            id="cron-trigger-btn"
+            onClick={handleTriggerNow}
+            disabled={cronLoading}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', background: 'rgba(99,102,241,0.15)', border: '1px solid var(--primary)', color: 'var(--primary)' }}
+          >
+            <Zap size={16} /> Trigger Now
+          </button>
+          {triggerMsg && <span style={{ color: 'var(--success)', fontSize: '0.875rem', fontStyle: 'italic' }}>✓ {triggerMsg}</span>}
+        </div>
       </div>
 
       <div className="glass" style={{ marginTop: '2rem', padding: '1.5rem' }}>
