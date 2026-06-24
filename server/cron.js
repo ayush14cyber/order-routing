@@ -11,30 +11,42 @@ function getRandomCoordinate(min, max) {
 }
 
 // Function to generate and place an automatic order
-async function placeAutomaticOrder() {
+// Accepts optional overrides for productId and quantity
+async function placeAutomaticOrder(overrides = {}) {
     try {
         console.log('[CRON] Attempting to place automatic order...');
-        
-        // 1. Get a random product
-        const products = await Product.find();
-        if (!products || products.length === 0) {
-            console.log('[CRON] No products available to order.');
-            return;
-        }
-        const randomProduct = products[Math.floor(Math.random() * products.length)];
 
-        // Random quantity between 1 and 5
-        const quantity = Math.floor(Math.random() * 5) + 1;
-        
+        let chosenProduct;
+        let quantity;
+
+        if (overrides.productId) {
+            // Use the specified product
+            chosenProduct = await Product.findById(overrides.productId);
+            if (!chosenProduct) {
+                console.log('[CRON] Specified product not found, falling back to random.');
+            }
+        }
+
+        if (!chosenProduct) {
+            // Fall back: pick a random product
+            const products = await Product.find();
+            if (!products || products.length === 0) {
+                console.log('[CRON] No products available to order.');
+                return;
+            }
+            chosenProduct = products[Math.floor(Math.random() * products.length)];
+        }
+
+        quantity = (overrides.quantity && overrides.quantity > 0) ? overrides.quantity : Math.floor(Math.random() * 5) + 1;
+
         const items = [{
-            productId: randomProduct._id,
-            quantity: quantity
+            productId: chosenProduct._id,
+            quantity
         }];
 
         // Dummy customer data
         const timestamp = new Date().toISOString();
         const customerName = `Auto Customer ${timestamp}`;
-        // Generate coordinates somewhat broadly (e.g. within US bounds or anywhere)
         const customerLat = getRandomCoordinate(30, 45);
         const customerLng = getRandomCoordinate(-120, -75);
 
@@ -77,7 +89,7 @@ async function placeAutomaticOrder() {
             );
         }
 
-        console.log(`[CRON] Successfully placed automatic order ID: ${order._id} for product ${randomProduct.name} (Qty: ${quantity})`);
+        console.log(`[CRON] Successfully placed automatic order ID: ${order._id} for product ${chosenProduct.name} (Qty: ${quantity})`);
 
     } catch (err) {
         console.error('[CRON] Error placing automatic order:', err.message);
@@ -89,20 +101,27 @@ let cronTask = null;
 let cronIntervalMinutes = 5;
 let orderCount = 0;
 let lastRanAt = null;
+let cronProductId = null;     // null = random
+let cronProductName = 'Random';
+let cronQuantity = null;      // null = random 1-5
 
-function startCron(intervalMinutes = 5) {
+function startCron(intervalMinutes = 5, productId = null, productName = 'Random', quantity = null) {
     if (cronTask) {
         cronTask.stop();
         cronTask = null;
     }
     cronIntervalMinutes = intervalMinutes;
+    cronProductId = productId;
+    cronProductName = productName || 'Random';
+    cronQuantity = quantity;
+
     const expression = `*/${intervalMinutes} * * * *`;
     cronTask = cron.schedule(expression, async () => {
-        await placeAutomaticOrder();
+        await placeAutomaticOrder({ productId: cronProductId, quantity: cronQuantity });
         orderCount++;
         lastRanAt = new Date().toISOString();
     });
-    console.log(`[CRON] Auto-order cron started (every ${intervalMinutes} min).`);
+    console.log(`[CRON] Auto-order cron started (every ${intervalMinutes} min, product: ${cronProductName}, qty: ${cronQuantity ?? 'random'}).`);
 }
 
 function stopCron() {
@@ -118,7 +137,10 @@ function getCronStatus() {
         running: cronTask !== null,
         intervalMinutes: cronIntervalMinutes,
         ordersPlaced: orderCount,
-        lastRanAt
+        lastRanAt,
+        selectedProductId: cronProductId,
+        selectedProductName: cronProductName,
+        selectedQuantity: cronQuantity
     };
 }
 

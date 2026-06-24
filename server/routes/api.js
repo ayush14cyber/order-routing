@@ -15,9 +15,10 @@ router.get('/cron/status', (req, res) => {
 });
 
 router.post('/cron/start', (req, res) => {
-    const { intervalMinutes } = req.body;
+    const { intervalMinutes, productId, productName, quantity } = req.body;
     const interval = parseInt(intervalMinutes) || 5;
-    startCron(interval);
+    const qty = quantity ? parseInt(quantity) : null;
+    startCron(interval, productId || null, productName || 'Random', qty);
     res.json({ message: `Cron started with ${interval} minute interval`, ...getCronStatus() });
 });
 
@@ -28,7 +29,9 @@ router.post('/cron/stop', (req, res) => {
 
 router.post('/cron/trigger', async (req, res) => {
     try {
-        await placeAutomaticOrder();
+        const { productId, quantity } = req.body || {};
+        const qty = quantity ? parseInt(quantity) : null;
+        await placeAutomaticOrder({ productId: productId || null, quantity: qty });
         res.json({ message: 'Manual auto-order triggered successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });

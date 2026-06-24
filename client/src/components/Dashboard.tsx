@@ -11,8 +11,11 @@ const Dashboard = ({ user }: { user?: any }) => {
   });
 
   const [recentOrders, setRecentOrders] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [cronStatus, setCronStatus] = useState<any>(null);
   const [cronInterval, setCronInterval] = useState(5);
+  const [cronProductId, setCronProductId] = useState('');
+  const [cronQuantity, setCronQuantity] = useState(1);
   const [cronLoading, setCronLoading] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState('');
 
@@ -26,7 +29,13 @@ const Dashboard = ({ user }: { user?: any }) => {
   const fetchCronStatus = useCallback(() => {
     fetch(`${API_BASE_URL}/api/cron/status`)
       .then(res => res.json())
-      .then(data => { setCronStatus(data); setCronInterval(data.intervalMinutes || 5); })
+      .then(data => {
+        setCronStatus(data);
+        setCronInterval(data.intervalMinutes || 5);
+        // Sync UI selectors with running cron config
+        if (data.selectedProductId) setCronProductId(data.selectedProductId);
+        if (data.selectedQuantity) setCronQuantity(data.selectedQuantity);
+      })
       .catch(() => {});
   }, []);
 
@@ -38,6 +47,8 @@ const Dashboard = ({ user }: { user?: any }) => {
     
     fetchOrders();
     fetchCronStatus();
+
+    fetch(`${API_BASE_URL}/api/products`).then(res => res.json()).then(setProducts);
 
     fetch(`${API_BASE_URL}/api/inventory`).then(res => res.json()).then(data => {
       setStats(prev => ({ ...prev, lowStockAlerts: data.filter((i:any) => i.quantity < 10).length }));
@@ -59,10 +70,16 @@ const Dashboard = ({ user }: { user?: any }) => {
 
   const handleCronStart = async () => {
     setCronLoading(true);
+    const selectedProduct = products.find((p: any) => p._id === cronProductId);
     await fetch(`${API_BASE_URL}/api/cron/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ intervalMinutes: cronInterval })
+      body: JSON.stringify({
+        intervalMinutes: cronInterval,
+        productId: cronProductId || null,
+        productName: selectedProduct?.name || 'Random',
+        quantity: cronQuantity || null
+      })
     });
     await fetchCronStatus();
     setCronLoading(false);
@@ -78,7 +95,14 @@ const Dashboard = ({ user }: { user?: any }) => {
   const handleTriggerNow = async () => {
     setCronLoading(true);
     setTriggerMsg('');
-    const res = await fetch(`${API_BASE_URL}/api/cron/trigger`, { method: 'POST' });
+    const res = await fetch(`${API_BASE_URL}/api/cron/trigger`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productId: cronProductId || null,
+        quantity: cronQuantity || null
+      })
+    });
     const data = await res.json();
     setTriggerMsg(data.message || data.error || 'Done');
     fetchOrders();
@@ -147,6 +171,13 @@ const Dashboard = ({ user }: { user?: any }) => {
             <p style={{ fontSize: '1.4rem', fontWeight: 700, margin: '4px 0 0' }}>{cronStatus?.intervalMinutes ?? '—'} min</p>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '12px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', margin: 0 }}>SELECTED PRODUCT</p>
+            <p style={{ fontSize: '0.9rem', fontWeight: 700, margin: '4px 0 0', color: 'var(--accent)' }}>
+              {cronStatus?.selectedProductName || 'Random'}
+              {cronStatus?.selectedQuantity ? ` × ${cronStatus.selectedQuantity}` : ''}
+            </p>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '12px' }}>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', margin: 0 }}>LAST RAN</p>
             <p style={{ fontSize: '0.85rem', fontWeight: 600, margin: '4px 0 0' }}>
               {cronStatus?.lastRanAt ? new Date(cronStatus.lastRanAt).toLocaleString() : 'Never'}
@@ -154,9 +185,40 @@ const Dashboard = ({ user }: { user?: any }) => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <label style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Interval (min):</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '1rem' }}>
+          {/* Product Selector */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <label style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Product</label>
+            <select
+              id="cron-product-select"
+              value={cronProductId}
+              onChange={e => setCronProductId(e.target.value)}
+              className="glass"
+              style={{ padding: '0.5rem 0.75rem', color: 'white', minWidth: '180px' }}
+            >
+              <option value="">🎲 Random Product</option>
+              {products.map((p: any) => (
+                <option key={p._id} value={p._id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          {/* Quantity */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <label style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Qty</label>
+            <input
+              id="cron-quantity-input"
+              type="number"
+              min={1}
+              max={100}
+              value={cronQuantity}
+              onChange={e => setCronQuantity(parseInt(e.target.value) || 1)}
+              className="glass"
+              style={{ width: '70px', padding: '0.5rem 0.75rem', color: 'white', textAlign: 'center' }}
+            />
+          </div>
+          {/* Interval */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <label style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Interval (min)</label>
             <input
               id="cron-interval-input"
               type="number"
@@ -165,7 +227,7 @@ const Dashboard = ({ user }: { user?: any }) => {
               value={cronInterval}
               onChange={e => setCronInterval(parseInt(e.target.value) || 5)}
               className="glass"
-              style={{ width: '70px', padding: '0.5rem 0.75rem', color: 'white', textAlign: 'center' }}
+              style={{ width: '90px', padding: '0.5rem 0.75rem', color: 'white', textAlign: 'center' }}
             />
           </div>
           <button
