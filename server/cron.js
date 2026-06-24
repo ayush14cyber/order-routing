@@ -44,11 +44,11 @@ async function placeAutomaticOrder(overrides = {}) {
             quantity
         }];
 
-        // Dummy customer data
+        // Customer delivery coordinates: use override if provided, else random
         const timestamp = new Date().toISOString();
         const customerName = `Auto Customer ${timestamp}`;
-        const customerLat = getRandomCoordinate(30, 45);
-        const customerLng = getRandomCoordinate(-120, -75);
+        const customerLat = (overrides.lat != null) ? overrides.lat : getRandomCoordinate(30, 45);
+        const customerLng = (overrides.lng != null) ? overrides.lng : getRandomCoordinate(-120, -75);
 
         // 2. Fetch all warehouses and inventories
         const warehouses = await Warehouse.find();
@@ -104,8 +104,10 @@ let lastRanAt = null;
 let cronProductId = null;     // null = random
 let cronProductName = 'Random';
 let cronQuantity = null;      // null = random 1-5
+let cronLat = null;           // null = random
+let cronLng = null;           // null = random
 
-function startCron(intervalMinutes = 5, productId = null, productName = 'Random', quantity = null) {
+function startCron(intervalMinutes = 5, productId = null, productName = 'Random', quantity = null, lat = null, lng = null) {
     if (cronTask) {
         cronTask.stop();
         cronTask = null;
@@ -114,14 +116,16 @@ function startCron(intervalMinutes = 5, productId = null, productName = 'Random'
     cronProductId = productId;
     cronProductName = productName || 'Random';
     cronQuantity = quantity;
+    cronLat = lat;
+    cronLng = lng;
 
     const expression = `*/${intervalMinutes} * * * *`;
     cronTask = cron.schedule(expression, async () => {
-        await placeAutomaticOrder({ productId: cronProductId, quantity: cronQuantity });
+        await placeAutomaticOrder({ productId: cronProductId, quantity: cronQuantity, lat: cronLat, lng: cronLng });
         orderCount++;
         lastRanAt = new Date().toISOString();
     });
-    console.log(`[CRON] Auto-order cron started (every ${intervalMinutes} min, product: ${cronProductName}, qty: ${cronQuantity ?? 'random'}).`);
+    console.log(`[CRON] Auto-order cron started (every ${intervalMinutes} min, product: ${cronProductName}, qty: ${cronQuantity ?? 'random'}, lat: ${cronLat ?? 'random'}, lng: ${cronLng ?? 'random'}).`);
 }
 
 function stopCron() {
@@ -140,7 +144,9 @@ function getCronStatus() {
         lastRanAt,
         selectedProductId: cronProductId,
         selectedProductName: cronProductName,
-        selectedQuantity: cronQuantity
+        selectedQuantity: cronQuantity,
+        selectedLat: cronLat,
+        selectedLng: cronLng
     };
 }
 

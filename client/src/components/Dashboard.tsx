@@ -16,6 +16,8 @@ const Dashboard = ({ user }: { user?: any }) => {
   const [cronInterval, setCronInterval] = useState(5);
   const [cronProductId, setCronProductId] = useState('');
   const [cronQuantity, setCronQuantity] = useState(1);
+  const [cronLat, setCronLat] = useState('');
+  const [cronLng, setCronLng] = useState('');
   const [cronLoading, setCronLoading] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState('');
 
@@ -32,9 +34,10 @@ const Dashboard = ({ user }: { user?: any }) => {
       .then(data => {
         setCronStatus(data);
         setCronInterval(data.intervalMinutes || 5);
-        // Sync UI selectors with running cron config
         if (data.selectedProductId) setCronProductId(data.selectedProductId);
         if (data.selectedQuantity) setCronQuantity(data.selectedQuantity);
+        if (data.selectedLat != null) setCronLat(String(data.selectedLat));
+        if (data.selectedLng != null) setCronLng(String(data.selectedLng));
       })
       .catch(() => {});
   }, []);
@@ -78,7 +81,9 @@ const Dashboard = ({ user }: { user?: any }) => {
         intervalMinutes: cronInterval,
         productId: cronProductId || null,
         productName: selectedProduct?.name || 'Random',
-        quantity: cronQuantity || null
+        quantity: cronQuantity || null,
+        lat: cronLat !== '' ? parseFloat(cronLat) : null,
+        lng: cronLng !== '' ? parseFloat(cronLng) : null,
       })
     });
     await fetchCronStatus();
@@ -100,7 +105,9 @@ const Dashboard = ({ user }: { user?: any }) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         productId: cronProductId || null,
-        quantity: cronQuantity || null
+        quantity: cronQuantity || null,
+        lat: cronLat !== '' ? parseFloat(cronLat) : null,
+        lng: cronLng !== '' ? parseFloat(cronLng) : null,
       })
     });
     const data = await res.json();
@@ -161,7 +168,7 @@ const Dashboard = ({ user }: { user?: any }) => {
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '12px' }}>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', margin: 0 }}>AUTO ORDERS PLACED</p>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, margin: '4px 0 0' }}>{cronStatus?.ordersPlaced ?? '—'}</p>
@@ -175,6 +182,14 @@ const Dashboard = ({ user }: { user?: any }) => {
             <p style={{ fontSize: '0.9rem', fontWeight: 700, margin: '4px 0 0', color: 'var(--accent)' }}>
               {cronStatus?.selectedProductName || 'Random'}
               {cronStatus?.selectedQuantity ? ` × ${cronStatus.selectedQuantity}` : ''}
+            </p>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '12px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', margin: 0 }}>DELIVERY LOCATION</p>
+            <p style={{ fontSize: '0.85rem', fontWeight: 600, margin: '4px 0 0', color: 'var(--accent)' }}>
+              {cronStatus?.selectedLat != null && cronStatus?.selectedLng != null
+                ? `${parseFloat(cronStatus.selectedLat).toFixed(4)}, ${parseFloat(cronStatus.selectedLng).toFixed(4)}`
+                : '🎲 Random'}
             </p>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '12px' }}>
@@ -214,6 +229,34 @@ const Dashboard = ({ user }: { user?: any }) => {
               onChange={e => setCronQuantity(parseInt(e.target.value) || 1)}
               className="glass"
               style={{ width: '70px', padding: '0.5rem 0.75rem', color: 'white', textAlign: 'center' }}
+            />
+          </div>
+          {/* Latitude */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <label style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Latitude</label>
+            <input
+              id="cron-lat-input"
+              type="number"
+              step="any"
+              placeholder="e.g. 12.97"
+              value={cronLat}
+              onChange={e => setCronLat(e.target.value)}
+              className="glass"
+              style={{ width: '110px', padding: '0.5rem 0.75rem', color: 'white' }}
+            />
+          </div>
+          {/* Longitude */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <label style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Longitude</label>
+            <input
+              id="cron-lng-input"
+              type="number"
+              step="any"
+              placeholder="e.g. 77.59"
+              value={cronLng}
+              onChange={e => setCronLng(e.target.value)}
+              className="glass"
+              style={{ width: '110px', padding: '0.5rem 0.75rem', color: 'white' }}
             />
           </div>
           {/* Interval */}

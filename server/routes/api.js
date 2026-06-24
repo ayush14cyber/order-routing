@@ -15,10 +15,12 @@ router.get('/cron/status', (req, res) => {
 });
 
 router.post('/cron/start', (req, res) => {
-    const { intervalMinutes, productId, productName, quantity } = req.body;
+    const { intervalMinutes, productId, productName, quantity, lat, lng } = req.body;
     const interval = parseInt(intervalMinutes) || 5;
     const qty = quantity ? parseInt(quantity) : null;
-    startCron(interval, productId || null, productName || 'Random', qty);
+    const parsedLat = lat != null ? parseFloat(lat) : null;
+    const parsedLng = lng != null ? parseFloat(lng) : null;
+    startCron(interval, productId || null, productName || 'Random', qty, parsedLat, parsedLng);
     res.json({ message: `Cron started with ${interval} minute interval`, ...getCronStatus() });
 });
 
@@ -29,9 +31,11 @@ router.post('/cron/stop', (req, res) => {
 
 router.post('/cron/trigger', async (req, res) => {
     try {
-        const { productId, quantity } = req.body || {};
+        const { productId, quantity, lat, lng } = req.body || {};
         const qty = quantity ? parseInt(quantity) : null;
-        await placeAutomaticOrder({ productId: productId || null, quantity: qty });
+        const parsedLat = lat != null ? parseFloat(lat) : null;
+        const parsedLng = lng != null ? parseFloat(lng) : null;
+        await placeAutomaticOrder({ productId: productId || null, quantity: qty, lat: parsedLat, lng: parsedLng });
         res.json({ message: 'Manual auto-order triggered successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });
