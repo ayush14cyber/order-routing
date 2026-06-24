@@ -9,12 +9,21 @@ const { startCron, stopCron, getCronStatus, placeAutomaticOrder } = require('../
 
 const User = require('../models/User');
 
+// --- Middleware: Admin-only guard ---
+const adminOnly = (req, res, next) => {
+    const role = req.headers['x-user-role'];
+    if (role !== 'Admin') {
+        return res.status(403).json({ error: 'Access denied. Only Admins can control the scheduler.' });
+    }
+    next();
+};
+
 // --- Cron Job Control Routes ---
 router.get('/cron/status', (req, res) => {
     res.json(getCronStatus());
 });
 
-router.post('/cron/start', (req, res) => {
+router.post('/cron/start', adminOnly, (req, res) => {
     const { intervalMinutes, productId, productName, quantity, lat, lng } = req.body;
     const interval = parseInt(intervalMinutes) || 5;
     const qty = quantity ? parseInt(quantity) : null;
@@ -24,12 +33,12 @@ router.post('/cron/start', (req, res) => {
     res.json({ message: `Cron started with ${interval} minute interval`, ...getCronStatus() });
 });
 
-router.post('/cron/stop', (req, res) => {
+router.post('/cron/stop', adminOnly, (req, res) => {
     stopCron();
     res.json({ message: 'Cron stopped', ...getCronStatus() });
 });
 
-router.post('/cron/trigger', async (req, res) => {
+router.post('/cron/trigger', adminOnly, async (req, res) => {
     try {
         const { productId, quantity, lat, lng } = req.body || {};
         const qty = quantity ? parseInt(quantity) : null;

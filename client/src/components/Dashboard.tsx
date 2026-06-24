@@ -76,7 +76,7 @@ const Dashboard = ({ user }: { user?: any }) => {
     const selectedProduct = products.find((p: any) => p._id === cronProductId);
     await fetch(`${API_BASE_URL}/api/cron/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-user-role': user?.role || '' },
       body: JSON.stringify({
         intervalMinutes: cronInterval,
         productId: cronProductId || null,
@@ -92,7 +92,10 @@ const Dashboard = ({ user }: { user?: any }) => {
 
   const handleCronStop = async () => {
     setCronLoading(true);
-    await fetch(`${API_BASE_URL}/api/cron/stop`, { method: 'POST' });
+    await fetch(`${API_BASE_URL}/api/cron/stop`, {
+      method: 'POST',
+      headers: { 'x-user-role': user?.role || '' }
+    });
     await fetchCronStatus();
     setCronLoading(false);
   };
@@ -102,7 +105,7 @@ const Dashboard = ({ user }: { user?: any }) => {
     setTriggerMsg('');
     const res = await fetch(`${API_BASE_URL}/api/cron/trigger`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-user-role': user?.role || '' },
       body: JSON.stringify({
         productId: cronProductId || null,
         quantity: cronQuantity || null,
@@ -147,8 +150,8 @@ const Dashboard = ({ user }: { user?: any }) => {
         ))}
       </div>
 
-      {/* ── Auto Order Scheduler Panel ── */}
-      <div className="glass" style={{ marginTop: '2rem', padding: '1.5rem' }}>
+      {/* ── Auto Order Scheduler Panel — Admin only ── */}
+      {user?.role === 'Admin' && (<div className="glass" style={{ marginTop: '2rem', padding: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <Clock size={20} color="var(--accent)" />
           <h3 style={{ margin: 0 }}>Auto Order Scheduler</h3>
@@ -300,6 +303,7 @@ const Dashboard = ({ user }: { user?: any }) => {
           {triggerMsg && <span style={{ color: 'var(--success)', fontSize: '0.875rem', fontStyle: 'italic' }}>✓ {triggerMsg}</span>}
         </div>
       </div>
+      )}
 
       <div className="glass" style={{ marginTop: '2rem', padding: '1.5rem' }}>
         <h3 style={{ marginBottom: '1.5rem' }}>Recent Routing Decisions</h3>
